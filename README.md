@@ -5,11 +5,7 @@
 
 ## Overview
 
-**multiseg** is a Python package that lets you download spatial geometries and
-construct, project, visualize, and analyze street networks from OpenStreetMap's
-APIs. Users can download and construct walkable, drivable, or bikable urban
-networks with a single line of Python code, and then easily analyze and
-visualize them:
+**multiseg** is a Python package that calculates urban segregation by modelling the city as a multiplex transport network, and runs a random walk to calculate a dynamic isolation index.
 
 
 ## Data

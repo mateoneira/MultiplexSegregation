@@ -1,4 +1,6 @@
 import multiseg as ms
+from pytest import raises, approx
+import geopandas as gpd
 
 def test_import():
     #test all ms module imports
@@ -24,4 +26,27 @@ def test_import():
     import seaborn as sns
     from scipy.sparse import identity, spdiags, linalg
     import time
+
+def test_get_vertex_of_polygons():
+    """
+    Check get vertex function takes in right values and
+    creates correct output
+    :return:
+    """
+
+    ##check error is raised with incorrect input
+    with raises(TypeError) as exception:
+        ms.get_vertex_of_polyons([1,2,1])
+
+    ##test only one element in geoseries
+
+    ##test multiple geom types
+
+    ##test only multipolygon
+
+    ##test multipolygon and polygon
+
+
+
+
 
