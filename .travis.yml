@@ -18,7 +18,7 @@ before_install:
   - conda list
 
 install:
-  - pip install multiseg
+  - python setup.py
   - pip show multiseg
 
 script:
