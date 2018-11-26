@@ -18,7 +18,7 @@ before_install:
   - conda list
 
 install:
-  - pip install .
+  - pip install multiseg
   - pip show multiseg
 
 script:
