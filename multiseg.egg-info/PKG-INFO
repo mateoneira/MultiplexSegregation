@@ -1,0 +1,19 @@
+Metadata-Version: 1.1
+Name: multiseg
+Version: 0.1.0
+Summary: Create a multiplex network from various transport networks, and calculate Random Walk Segregation Index.
+Home-page: UNKNOWN
+Author: Mateo Neira
+Author-email: mateo.neira.16@ucl.ac.uk
+License: MIT
+Description: UNKNOWN
+Platform: any
+Classifier: Development Status :: 4- Beta
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Natural Language :: English
+Classifier: Topic :: Scientific/Engineering :: GIS
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Programming Language :: Python :: 3.6

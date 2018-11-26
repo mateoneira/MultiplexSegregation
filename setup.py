@@ -26,7 +26,6 @@ setup(
     author_email='mateo.neira.16@ucl.ac.uk',
     license='MIT',
     platforms='any',
-    packages='multiseg',
     packages=find_packages(exclude=['*test']),
     install_requires=install_requires
 )

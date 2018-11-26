@@ -1,2 +1,2 @@
-import .processGeom
-import .multiplexSeg
+from .processGeom import *
+from .multiplexSeg import *

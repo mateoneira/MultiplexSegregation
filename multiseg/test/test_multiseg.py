@@ -3,7 +3,7 @@ import multiseg as ms
 def test_import():
     #test all ms module imports
     import pandas as pd
-    import geopandas as gpd
+    # import geopandas as gpd
     import numpy as np
     import networkx as nx
     import osmnx as ox

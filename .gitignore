@@ -1,0 +1,19 @@
+#Checkpoints
+.ipynb_checkpoints
+__pycache__
+.pytest_cache
+
+#dev
+multiseg.egg-info
+
+#working codes
+Street-Analysis-Nodes.ipynb
+Street Networks.ipynb
+
+cache
+.Rproj.user
+input_data
+output_data
+logs
+temp
+images
