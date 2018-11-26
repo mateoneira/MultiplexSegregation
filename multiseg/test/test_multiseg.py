@@ -36,7 +36,7 @@ def test_get_vertex_of_polygons():
 
     ##check error is raised with incorrect input
     with raises(TypeError) as exception:
-        ms.get_vertex_of_polyons([1,2,1])
+        ms.get_vertex_of_polygons([1,2,1])
 
     ##test only one element in geoseries
 
