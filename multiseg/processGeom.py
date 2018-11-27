@@ -1,3 +1,10 @@
+"""
+Module: processGeom.py
+Description: Series of functions to clean geometry from blocks, streets, and transport lines.
+License: MIT, see full license in LICENSE.txt
+Web: https://github.com/mateoneira/MultiplexSegregation
+"""
+
 import geopandas as gpd
 import shapely.geometry as geometry
 import numpy as np
@@ -8,8 +15,16 @@ import math
 
 def get_vertex_of_polygons(geom):
     """
-    Get list of vertices of all polygons in polygon list
+    Get list of vertices of all polygons in geoseries and return as list of points.
+    If no polygons are supplied in geoseries empty list is returned.
+
+    Parameters
+    ----------
     :param geom: geopandas.GeoSeries
+        geometries of city blocks.
+
+    Returns
+    -------
     :return: list
         list of vertices of polygons
     """
@@ -35,14 +50,24 @@ def get_vertex_of_polygons(geom):
 def alpha_shape(points, alpha):
     """
     Calculate alpha shape from set of points and alpha value.
+
+    Parameters
+    ----------
     :param points: list
         list containing shapely.Geometry.Point objects
-    :param alpha: int
-        alpha value
+    :param alpha: float
+        alpha value greater than 0
+
+    Returns
+    -------
     :return: shapely.geometry
     """
     if not all(isinstance(x, geometry.point.Point) for x in points):
-        raise TypeError("points list should contain *geometry.Point* type.")
+        raise TypeError("points list must contain only *geometry.Point* type.")
+    if alpha <= 0:
+        raise ValueError("alpha must be greater than zero.")
+    if len(points) < 3:
+        raise TypeError("points list must have at least 3 items.")
 
     # create Delaunay triangulation
     coords = np.array([point.coords[0] for point in points])
@@ -52,14 +77,14 @@ def alpha_shape(points, alpha):
     edges = set()
     edge_points = []
 
-    ##helper function to calculate which edges to keep
+    # helper function to calculate which edges to keep
     def add_edge(i, j):
         if (i, j) in edges or (j, i) in edges:
             return
         edges.add((i, j))
         edge_points.append(coords[[i, j]])
 
-    for ia, ib, ic in tri.vertices:
+    for ia, ib, ic in tri.simplices:
         pa = coords[ia]
         pb = coords[ib]
         pc = coords[ic]
@@ -104,13 +129,20 @@ def boundary_from_areas(blocks, alpha=1, buffer_dist=0):
     ----------
     :param blocks: geopandas.GeoDataFrame
         city block geometry
-    :param alpha: int
+    :param alpha: float
         alpha value for alpha shape calculation
-    :param buffer_dist: int
+    :param buffer_dist: float
         distance to buffer alpha shape in meters.
 
     :return: geopandas.GeoSeries
     """
+
+    if type(blocks) != gpd.geodataframe.GeoDataFrame:
+        raise TypeError("blocks must be a *geopandas.GeoDataFrame*.")
+    if alpha <= 0:
+        raise ValueError("alpha must be an float greater than 0.")
+    if buffer_dist < 0:
+        raise ValueError("buffer_dist must be a float greater than 0.")
 
     # subset geometry from geodataframe.
     geom = blocks.geometry
