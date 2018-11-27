@@ -14,8 +14,8 @@ classifiers = ['Development Status :: 4- Beta',
                'Programming Language :: Python :: 3.6'
                ]
 with open('requirements.txt') as f:
-    requirements_lines=f.readlines()
-install_requires=[r.strip() for r in requirements_lines]
+    requirements_lines = f.readlines()
+install_requires = [r.strip() for r in requirements_lines]
 
 setup(
     name="multiseg",
@@ -29,4 +29,3 @@ setup(
     packages=find_packages(exclude=['*test']),
     install_requires=install_requires
 )
-

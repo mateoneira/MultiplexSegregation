@@ -1,9 +1,16 @@
-import multiseg as ms
+from ..multiplexSeg import *
+from ..processGeom import *
+
 from pytest import raises, approx
 import geopandas as gpd
 
+
 def test_import():
-    #test all ms module imports
+    """
+    Test all module imports
+    :return:
+    """
+    # test all ms module imports
     import pandas as pd
     # import geopandas as gpd
     import numpy as np
@@ -27,6 +34,7 @@ def test_import():
     from scipy.sparse import identity, spdiags, linalg
     import time
 
+
 def test_get_vertex_of_polygons():
     """
     Check get vertex function takes in right values and
@@ -34,19 +42,25 @@ def test_get_vertex_of_polygons():
     :return:
     """
 
-    ##check error is raised with incorrect input
+    # check error is raised with incorrect input
     with raises(TypeError) as exception:
-        ms.get_vertex_of_polygons([1,2,1])
+        get_vertex_of_polygons([1, 2, 1])
 
-    ##test only one element in geoseries
+    # test only one element in geoseries
+    simple_box = gpd.GeoSeries(geometry.Polygon([[0, 0], [0, 1], [1, 1], [1, 0]]))
+    assert all(isinstance(x, geometry.point.Point) for x in get_vertex_of_polygons(simple_box))
 
-    ##test multiple geom types
+    # test multiple geom types
 
-    ##test only multipolygon
+    # test only multipolygon
 
-    ##test multipolygon and polygon
-
-
+    # test multipolygon and polygon
 
 
-
+def test_alpha_shape():
+    """
+    Check alpha shape function takes in right values and creates correct output.
+    :return:
+    """
+    pass
+    # check error is raised with incorrect_input
