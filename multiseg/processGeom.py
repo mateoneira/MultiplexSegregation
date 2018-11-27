@@ -12,6 +12,9 @@ from scipy.spatial import Delaunay
 from shapely.ops import cascaded_union, polygonize, linemerge
 import math
 
+# Geographical projection of OpenStreetMap data.
+crs_osm = {'init': 'epsg:4326'}
+
 
 def get_vertex_of_polygons(geom):
     """
@@ -158,16 +161,117 @@ def boundary_from_areas(blocks, alpha=1, buffer_dist=0):
     return gpd.GeoSeries(boundary)
 
 
-def join_lines(lines, line_list):
-    pass
+def join_lines(line, line_list, tolerance=20):
+    """
+    Join MultiLineStrings and returns SingleLineString through recursion.
+
+    Parameters
+    ----------
+    :param line: list
+        list of coordinates of LineString
+    :param line_list: list
+        list of list of coordinates of LineStrings
+    :param tolerance: float
+        tolerance of check if two points are the same point (in meters).
+
+    Return
+    ------
+    :return: list
+    """
+
+    # get last coordinate of line and make a point
+    point_1 = geometry.Point(line[-1])
+
+    # list to store coords list and their reverse
+    coord_list = []
+
+    if line_list is not None:
+        for coords in line_list:
+            # store all lines and reversed lines in one list
+            coord_list.append(coords)
+            coord_list.append(list(reversed(coords)))
+
+        for coords in coord_list:
+            point_2 = geometry.Point(coords[0])
+            if point_1.distance(point_2) < tolerance+1:
+                line_list.remove(coords)
+                for coord in coords:
+                    line.append(coord)
+                join_lines(line, line_list)
+            else:
+                return line
+
 
 
 def clean_stops(stops, tolerance=50):
     pass
 
 
-def clean_lines(line):
-    pass
+def clean_lines(lines, group_by="None", tolerance=20):
+    """
+    Creates geodataframe containing geometries of LineString objects
+
+    Parameters
+    ----------
+    :param lines: geopandas.GeoDataFrame containing transport line geometries
+    :param group_by: str
+        column name of group, if "None", the whole dataset is processed as one. Default "None".
+    :param tolerance: float
+        tolerance of check if two points are the same point (in meters).
+    Returns
+    -------
+    :return: geopandas.GeoDataFrame
+    """
+    lines = lines.copy()
+
+    # Empty list to store cleaned lines
+    lines_list = []
+
+    # Define how data will be subset to process
+    if group_by == "None":
+        lines['grouped'] = 0
+    else:
+        lines['grouped'] = lines[group_by]
+
+    # loop through subset of data and join MultiLineString to SingleLineString
+    for group in lines.grouped.unique():
+        lines_subset = lines[lines.grouped == group]
+
+        # loop through individual geometries
+        for i, row in lines_subset.iterrows():
+            geom = row.geometry
+
+            # check if line is MultiLineString
+            if isinstance(geom, geometry.MultiLineString):
+                geom_list = geom.geoms
+
+                # create empty list to store coordinates of line
+                lines_coords = []
+                for line in geom_list:
+                    # if line is not smaller than tolerance meters and not a self-loop
+                    if line.length > tolerance and line.coords[0] != tl.coords[-1]:
+                        coord_list = list(tl.coords)
+                        lines_coords.append(coord_list)
+
+                # choose first line and look for continuation
+                line_coord = lines_coords[0]
+                line_list = lines_coords[1:]
+
+                line_joined = join_lines(line_coord, line_list)
+                line_joined = join_lines(list(reversed(line_joined)), line_list)
+
+                line_geom = geometry.LineString(coor for coor in line_joined)
+
+                lineGPD = gpd.GeoDataFrame({''})
+
+
+
+
+
+
+
+
+
 
 
 def snap_stops_to_lines(line, stops, area, tolerance=50):
