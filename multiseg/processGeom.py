@@ -178,7 +178,7 @@ def join_lines(line, line_list, tolerance=20):
     ------
     :return: list
     """
-
+    line_list = line_list.copy()
     # get last coordinate of line and make a point
     point_1 = geometry.Point(line[-1])
 
@@ -202,14 +202,14 @@ def join_lines(line, line_list, tolerance=20):
                 return line
 
 
-
 def clean_stops(stops, tolerance=50):
     pass
 
 
 def clean_lines(lines, group_by="None", tolerance=20):
     """
-    Creates geodataframe containing geometries of LineString objects
+    Creates geodataframe containing geometries of LineString objects.
+    MultiLineStrings and LineStringZ is converted to LineStrings.
 
     Parameters
     ----------
@@ -249,9 +249,15 @@ def clean_lines(lines, group_by="None", tolerance=20):
                 lines_coords = []
                 for line in geom_list:
                     # if line is not smaller than tolerance meters and not a self-loop
-                    if line.length > tolerance and line.coords[0] != tl.coords[-1]:
-                        coord_list = list(tl.coords)
-                        lines_coords.append(coord_list)
+                    if line.length > tolerance and line.coords[0] != line.coords[-1]:
+                        if line.has_z:
+                            coord_list = []
+                            for coord in line.coords:
+                                coord_list.append(coord[0:2])
+                            lines_coords.append(coord_list)
+                        else:
+                            coord_list = list(line.coords)
+                            lines_coords.append(coord_list)
 
                 # choose first line and look for continuation
                 line_coord = lines_coords[0]
@@ -262,16 +268,20 @@ def clean_lines(lines, group_by="None", tolerance=20):
 
                 line_geom = geometry.LineString(coor for coor in line_joined)
 
-                lineGPD = gpd.GeoDataFrame({''})
+            else:
+                if geom.has_z:
+                    coord_list = []
+                    for coord in geom.coords:
+                        coord_list.append(coord[0:2])
+                    line_geom = geometry.LineString(coor for coor in coord_list)
+                else:
+                    line_geom = geom
 
+            lines_list.append(line_geom)
 
+    linesGPD = gpd.GeoDataFrame({'geometry': lines_list})
 
-
-
-
-
-
-
+    return(linesGPD)
 
 
 def snap_stops_to_lines(line, stops, area, tolerance=50):
