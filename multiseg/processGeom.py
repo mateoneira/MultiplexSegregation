@@ -202,36 +202,102 @@ def join_lines(line, line_list, tolerance=20):
                 return line
 
 
-def clean_stops(stops, tolerance=50):
-    pass
+def clean_stops(stops, group_by=None, tolerance=50, data={}):
+    """
+    Create geodataframe containing point geometries representing stops in transport network.
+    Points are clustered based on tolerance distance, and and centroid is returned as new point.
+
+    Parameters
+    ----------
+    :param stops: geopandas.GeoDataFrame
+        transport stops geometry.
+    :param group_by:  str
+        column name of group, if None, the whole dataset is processed as one. Default None.
+    :param tolerance: float
+        tolerance to check if two points are the sme point (in meters).
+    :param data: dict
+        data that has to be retained and mapping to ne column name.
+
+    Returns
+    -------
+    :return: geopandas.GeoDataFrame
+    """
+    temp = []
+    stops = stops.copy()
+
+    # check if data values need to be conserved
+    mapped_data = {new_column: [] for (old_column, new_column) in data.items()}
+    if 'geometry' not in mapped_data.keys():
+        mapped_data['geometry'] = []
+
+    # Define how data will be subset to process
+    if group_by is None:
+        stops['grouped'] = 0
+    else:
+        stops['grouped'] = stops[group_by]
+
+    mapped_data['grouped'] = []
+
+    # loop through groups, buffer, join, and append new point
+    for group in stops.grouped.unique():
+        stops_subset = stops[stops.grouped == group]
+
+        buffered_stops = stops_subset.buffer(tolerance).unary_union
+
+        # check if new geom is polygon, and convert to list
+        if isinstance(buffered_stops, geometry.Polygon):
+            buffered_stops = [buffered_stops]
+
+        for geom in buffered_stops:
+            mapped_data['grouped'].append(group)
+            mapped_data['geometry'].append(geom.centroid)
+
+            # map data from points to centroids
+            if data:
+                temp = stops_subset[stops_subset.intersects(geom)]
+
+                for column_name, new_column in data.items():
+                    val = ', '.join(str(v) for v in temp[column_name].unique())
+                    mapped_data[new_column].append(val)
+
+    stopsGPD = gpd.GeoDataFrame(mapped_data)
+
+    return stopsGPD
 
 
-def clean_lines(lines, group_by="None", tolerance=20):
+def clean_lines(lines, group_by=None, tolerance=20, data={}):
     """
     Creates geodataframe containing geometries of LineString objects.
     MultiLineStrings and LineStringZ is converted to LineStrings.
 
     Parameters
     ----------
-    :param lines: geopandas.GeoDataFrame containing transport line geometries
+    :param lines: geopandas.GeoDataFrame
+        transport line geometries
     :param group_by: str
-        column name of group, if "None", the whole dataset is processed as one. Default "None".
+        column name of group, if None, the whole dataset is processed as one. Default None.
     :param tolerance: float
         tolerance of check if two points are the same point (in meters).
+    :param data: dict
+        data that has to be retained and mapping to new column name.
     Returns
     -------
     :return: geopandas.GeoDataFrame
     """
     lines = lines.copy()
 
-    # Empty list to store cleaned lines
-    lines_list = []
+    # check if data values need to be conserved
+    mapped_data = {new_column: [] for (old_column, new_column) in data.items()}
+    if 'geometry' not in mapped_data.keys():
+        mapped_data['geometry'] = []
 
     # Define how data will be subset to process
-    if group_by == "None":
+    if group_by is None:
         lines['grouped'] = 0
     else:
         lines['grouped'] = lines[group_by]
+
+    mapped_data['grouped'] = []
 
     # loop through subset of data and join MultiLineString to SingleLineString
     for group in lines.grouped.unique():
@@ -277,15 +343,42 @@ def clean_lines(lines, group_by="None", tolerance=20):
                 else:
                     line_geom = geom
 
-            lines_list.append(line_geom)
+            mapped_data['geometry'].append(line_geom)
+            mapped_data['grouped'].append(row['grouped'])
 
-    linesGPD = gpd.GeoDataFrame({'geometry': lines_list})
+            # map values
+            for column_name, new_column in data.items():
+                mapped_data[new_column].append(row[column_name])
 
-    return(linesGPD)
+    linesGPD = gpd.GeoDataFrame(mapped_data)
+
+    return linesGPD
 
 
-def snap_stops_to_lines(line, stops, area, tolerance=50):
-    pass
+def snap_stops_to_lines(lines, stops, tolerance=50):
+    """
+    Snaps points to lines based on tolerance distance and route.
+
+    Parameters
+    ----------
+    :param lines: geopandas.GeoDataFrame
+        geodataframe containing line geometries.
+    :param stops: geopandas.GeoDataFrame
+        geodataframe containing stop geometries.
+    :param tolerance: float
+        distance tolerance for snapping points (in meters).
+    :param group_by_lines:
+    :param group_by_stops:
+
+    Returns
+    -------
+    :return: geopandas.GeoDataFrame
+        geodataframe with point geometries snapped to closest transport route.
+    """
+
+    stop_list = []
+
+    # for group in lines[group_by_lines].unique():
 
 
 def snap_lines_to_points(G):

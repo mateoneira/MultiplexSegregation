@@ -6,8 +6,9 @@ from descartes import PolygonPatch
 import matplotlib.pyplot as plt
 
 
-def transport_graph_from_lines_stops(linesGPD, stopsGPD, boundary, speed =30):
-    """
+def transport_graph_from_lines_stops(linesGPD, stopsGPD, boundary, speed=30, group_lines_by=None, group_stops_by=None,
+                                     lines_data={}, stops_data={}):
+    """=
     Create a transport graph from line and stop shapefile data within
     a spatial boundary.
 
@@ -22,17 +23,24 @@ def transport_graph_from_lines_stops(linesGPD, stopsGPD, boundary, speed =30):
     :param stopsGPD:
     :param boundary:
     :param speed:
+    :param group_lines_by:
+    :param group_stops_by:
+    :param lines_data:
+    :param stops_data:
 
     Returns
     -------
     :return: networkx.MultiDiGraph
     """
-    linesGPD = clean_lines(linesGPD)
+    # clean input data
+    lines = clean_lines(linesGPD, group_by=group_lines_by, data=lines_data)
+    stops = clean_stops(stopsGPD, group_by=group_stops_by, data=stops_data)
+
     stopsGPD = snap_stops_to_lines(linesGPD, stopsGPD, boundary)
+
     UJT = 1/(speed * 16.6666666667) #turn Km/h to min/meter
 
     line_list = []
-
 
 
 def street_graph_from_boundary(boundary, speed=5, network_type="walk"):
