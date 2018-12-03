@@ -34,13 +34,67 @@ def transport_graph_from_lines_stops(linesGPD, stopsGPD, boundary, speed=30, gro
     """
     # clean input data
     lines = clean_lines(linesGPD, group_by=group_lines_by, data=lines_data)
-    stops = clean_stops(stopsGPD, group_by=group_stops_by, data=stops_data)
-
-    stopsGPD = snap_stops_to_lines(linesGPD, stopsGPD, boundary)
+    stops = clean_stops(stopsGPD, boundary, group_by=group_stops_by, data=stops_data)
+    stops = snap_stops_to_lines(lines, stops)
 
     UJT = 1/(speed * 16.6666666667) #turn Km/h to min/meter
 
-    line_list = []
+    lines_dict = {column: [] for column in lines.columns}
+    lines_dict['length'] = []
+    lines_dict['u'] = []
+    lines_dict['v'] = []
+    lines_dict['from'] =[]
+    lines_dict['to'] = []
+    lines_dict['weight'] = []
+
+    for i, line in lines.iterrows():
+        geom = line.geometry
+        stops_on_line = stops[stops.line_id == i].copy()
+
+        stops_on_line = stops_on_line.sort_values(by = 'at_length').reset_index()
+
+        for i, stop in stops_on_line[:-1].iterrows():
+            start_pnt = stop.at_length
+            end_pnt = stops_on_line.at_length[i+1]
+
+            distance_between = end_pnt - start_pnt
+
+            # cut line
+            first_segments = cut_line(geom, start_pnt)
+
+            if len(first_segments) == 1:
+                temp_segment = first_segments[0]
+            else:
+                temp_segment = first_segments[1]
+
+            # make second cut
+            segment = cut_line(temp_segment, distance_between)[0]
+
+            # if stops are endpoints of new lines, save
+            if (stop.geometry.distance(geometry.Point(segment.coords[0]))<1) and (stops_on_line.geometry[i+1].distance(geometry.Point(segment.coords[-1]))<1):
+                for column in lines.columns:
+                    if column != 'geometry':
+                        lines_dict[column].extend([line[column], line[column]])
+                lines_dict['geometry'].extend([segment, segment])
+                lines_dict['length'].extend([distance_between, distance_between])
+                lines_dict['u'].extend([stop.stop_id, stops_on_line.stop_id[i+1]])
+                lines_dict['v'].extend([stops_on_line.stop_id[i+1], stop.stop_id])
+                lines_dict['from'].extend([segment.coords[0], segment.coords[-1]])
+                lines_dict['to'].extend([segment.coords[-1], segment.coords[0]])
+                lines_dict['weight'].extend([distance_between * UJT, distance_between * UJT])
+
+    edge_list = gpd.GeoDataFrame(lines_dict)
+    edge_list['key'] = [key for key in range(len(edge_list))]
+    edge_list.crs = linesGPD.crs
+
+    stops.gdf_name = 'node_list'
+    edge_list.gdf_name = 'edge_list'
+
+    G = ox.gdfs_to_graph(stops, edge_list)
+    
+    return G
+
+
 
 
 def street_graph_from_boundary(boundary, speed=5, network_type="walk"):

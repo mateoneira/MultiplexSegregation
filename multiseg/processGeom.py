@@ -202,7 +202,7 @@ def join_lines(line, line_list, tolerance=20):
                 return line
 
 
-def clean_stops(stops, group_by=None, tolerance=50, data={}):
+def clean_stops(stops, boundary, group_by=None, tolerance=50, data={}):
     """
     Create geodataframe containing point geometries representing stops in transport network.
     Points are clustered based on tolerance distance, and and centroid is returned as new point.
@@ -211,6 +211,8 @@ def clean_stops(stops, group_by=None, tolerance=50, data={}):
     ----------
     :param stops: geopandas.GeoDataFrame
         transport stops geometry.
+    :param boundary: geopandas.GeoDataFrame
+        geodataframe of boundary polygon.
     :param group_by:  str
         column name of group, if None, the whole dataset is processed as one. Default None.
     :param tolerance: float
@@ -224,6 +226,7 @@ def clean_stops(stops, group_by=None, tolerance=50, data={}):
     """
     temp = []
     stops = stops.copy()
+    boundary_geom = boundary.unary_union
 
     # check if data values need to be conserved
     mapped_data = {new_column: [] for (old_column, new_column) in data.items()}
@@ -261,7 +264,7 @@ def clean_stops(stops, group_by=None, tolerance=50, data={}):
                     mapped_data[new_column].append(val)
 
     stopsGPD = gpd.GeoDataFrame(mapped_data)
-
+    stopsGPD = stopsGPD[stopsGPD.intersects(boundary_geom)]
     return stopsGPD
 
 
@@ -367,8 +370,6 @@ def snap_stops_to_lines(lines, stops, tolerance=50):
         geodataframe containing stop geometries.
     :param tolerance: float
         distance tolerance for snapping points (in meters).
-    :param group_by_lines:
-    :param group_by_stops:
 
     Returns
     -------
@@ -376,17 +377,71 @@ def snap_stops_to_lines(lines, stops, tolerance=50):
         geodataframe with point geometries snapped to closest transport route.
     """
 
-    stop_list = []
+    snapped_stops = gpd.GeoDataFrame()
 
-    # for group in lines[group_by_lines].unique():
+    for group in lines.grouped.unique():
+        lines_subset = lines[lines.grouped == group]
+        stops_subset = stops[stops.grouped == group]
+
+        # snap points to lines
+        for i, line in lines_subset.iterrows():
+            geom = line.geometry
+
+            # get only points within buffer and inside area
+            buffer = geom.buffer(tolerance)
+
+            stops_inside = stops_subset[stops_subset.intersects(buffer)].copy()
+
+            points_proj = [geom.project(stop) for stop in stops_inside.geometry]
+            stops_inside.geometry = [geom.interpolate(point) for point in points_proj]
+            stops_inside['at_length'] = points_proj
+            stops_inside['line_id'] = [i for point in points_proj]
+            snapped_stops = snapped_stops.append(stops_inside, ignore_index=True)
+
+    snapped_stops = snapped_stops.drop_duplicates(subset=[col for col in snapped_stops.columns if col != 'geometry'])
+    snapped_stops = snapped_stops.dropna(how="all")
+    snapped_stops['stop_id'] = [i for i in range(len(snapped_stops))]
+    snapped_stops['x'] = [point.xy[0][0] for point in snapped_stops.geometry]
+    snapped_stops['y'] = [point.xy[1][0] for point in snapped_stops.geometry]
+    return snapped_stops
 
 
 def snap_lines_to_points(G):
     pass
 
 
-def cut(line, distance):
-    pass
+def cut_line(line, distance):
+    """
+    Cuts line at a set distance.
+
+    Parameters
+    ----------
+    :param line: shapely.LineString
+        line geometry to cut.
+    :param distance: float
+        distance at which to cut line.
+
+    Returns
+    -------
+    :return: list
+        list containing line segments resultant from the cut.
+    """
+
+    if distance <= 0.0 or distance >= line.length:
+        return [line]
+
+    coords = list(line.coords)
+
+    for i, p in enumerate(coords):
+        current_distance =line.project(geometry.Point(p))
+
+        if current_distance == distance:
+            return [geometry.LineString(coords[:i+1]), geometry.LineString(coords[i:])]
+        elif current_distance>distance:
+            cut_point = line.interpolate(distance)
+
+            return [geometry.LineString(coords[:i+1] + [(cut_point.x, cut_point.y)]),
+                    geometry.LineString([(cut_point.x, cut_point.y)] + coords[i:])]
 
 
 def find_nearest_node(data, nodes, spatial_index, buff=50):
