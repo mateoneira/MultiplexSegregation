@@ -6,9 +6,10 @@ Web: https://github.com/mateoneira/MultiplexSegregation
 """
 
 import geopandas as gpd
+from geopandas.tools import overlay
 import shapely.geometry as geometry
 import numpy as np
-from scipy.spatial import Delaunay
+from scipy.spatial import Delaunay, Voronoi
 from shapely.ops import cascaded_union, polygonize, linemerge
 import math
 
@@ -448,9 +449,119 @@ def find_nearest_node(data, nodes, spatial_index, buff=50):
     pass
 
 
-def intersection_voronoi():
-    pass
+def create_node_voronoi(G, boundary):
+    """
 
 
-def area_overlay():
-    pass
+    Parameters
+    ----------
+    :param G: networkx.MultiDiGraph
+        Network for which to create a node tessellation.
+    :param boundary: geopandas.GeoDataFrame
+        Boundary polygon.
+
+    Returns
+    -------
+    :return:
+    """
+    node_x = [float(node['x']) for node in G.node.values()]
+    node_y = [float(node['y']) for node in G.node.values()]
+
+    points = np.column_stack((node_x,node_y))
+
+    tessellation = Voronoi(points)
+
+    # create polygon from voronoi tessellation
+    lines = [geometry.LineString(tessellation.vertices[line])
+             for line in tessellation.ridge_vertices if -1 not in line]
+
+    polygons = list(polygonize(lines))
+    polygonsGPD = gpd.GeoDataFrame(geometry=polygons)
+    polygonsGPD.crs = G.graph['crs']
+
+    # create intersection with urban limit
+    polygonsGPD = gpd.overlay(polygonsGPD, boundary)
+    polygonsGPD = polygonsGPD[polygonsGPD.is_valid]
+
+    return polygonsGPD
+
+
+def area_overlay(sources, targets, population, indices = [], groups = []):
+    """
+    Calculate area overlay given to geometries and initial values.
+
+    Parameters
+    ----------
+    :param source: geopandas.GeoDataFrame
+    :param target: geopandas.GeoDataFrame
+
+    Returns
+    -------
+    :return:
+    """
+    target = targets.copy()
+    population_data = []
+    indices_data = {index: [] for index in indices}
+    groups_data = {group: [] for group in groups}
+
+    for i, target in targets.iterrows():
+        temp_population = 0
+        temp_indices = {index: 0 for index in indices}
+        temp_groups = {group: 0 for group in groups}
+        count = 0
+        target_geom = target.geometry
+
+        # create spatial index and find geometry within polygon
+        sindex = sources.sindex
+        matches_index = list(sindex.intersection(target_geom.bounds))
+
+        for matched_index in matches_index:
+            intersection = overlay(sources.iloc[[matched_index]], targets.iloc[[i]], how='intersection')
+
+            if len(intersection) is not 0:
+                count += 1
+                source_area = sum(sources.iloc[[matched_index]].area)
+                inters_area = sum(intersection.geometry.area)
+                inters_ratio = inters_area/source_area
+
+                # for population use weighted sum
+                population_value = inters_ratio * sources.iloc[[matched_index]][population].values[0]
+
+                temp_population += population_value
+                # for indices use weighted mean
+                for index in temp_indices.keys():
+                    temp_indices[index] += inters_ratio * sources.iloc[[matched_index]][index].values[0]
+
+                # groups must be recalculated based weighted population and percentage
+                for group in temp_groups.keys():
+                    temp_groups[group] += population_value * sources.iloc[[matched_index]][group].values[0]
+
+        if temp_population != 0:
+            for group in groups_data.keys():
+                groups_data[group].append(temp_groups[group]/temp_population)
+        else:
+            for group in groups_data.keys():
+                groups_data[group].append(0)
+
+        if count != 0:
+            for index in indices_data.keys():
+                indices_data[index].append(temp_indices[index]/count)
+        else:
+            for index in indices_data.keys():
+                indices_data[index].append(np.nan)
+        population_data.append(temp_population)
+
+    # append values to target geometry
+    target[population] = population_data
+
+    for index in indices_data.keys():
+        target[index] = indices_data[index]
+
+    for group in groups_data.keys():
+        target[group] = groups_data[group]
+
+    return target
+
+
+
+

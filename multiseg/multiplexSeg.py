@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 def transport_graph_from_lines_stops(linesGPD, stopsGPD, boundary, speed=30, group_lines_by=None, group_stops_by=None,
                                      lines_data={}, stops_data={}):
-    """=
+    """
     Create a transport graph from line and stop shapefile data within
     a spatial boundary.
 
@@ -91,10 +91,8 @@ def transport_graph_from_lines_stops(linesGPD, stopsGPD, boundary, speed=30, gro
     edge_list.gdf_name = 'edge_list'
 
     G = ox.gdfs_to_graph(stops, edge_list)
-    
+
     return G
-
-
 
 
 def street_graph_from_boundary(boundary, speed=5, network_type="walk"):
@@ -129,6 +127,18 @@ def street_graph_from_boundary(boundary, speed=5, network_type="walk"):
     G = add_geometry_to_network(G)
 
     return G
+
+
+def map_values_to_nodes(G, spatial_units, boundary):
+    """
+
+    :param G:
+    :param spatial_units:
+    :param boundary:
+    :return:
+    """
+
+    tessellation = create_node_voronoi(G, boundary)
 
 
 def add_geometry_to_network(G):
