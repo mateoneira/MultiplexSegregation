@@ -129,7 +129,7 @@ def street_graph_from_boundary(boundary, speed=5, network_type="walk"):
     return G
 
 
-def map_values_to_nodes(G, spatial_units, boundary):
+def map_values_to_nodes(G, spatial_units, boundary, population, indices, groups):
     """
 
     :param G:
@@ -137,8 +137,20 @@ def map_values_to_nodes(G, spatial_units, boundary):
     :param boundary:
     :return:
     """
-
+    G = G.copy()
     tessellation = create_node_voronoi(G, boundary)
+    overlayPoly = area_overlay(spatial_units, tessellation, population, indices, groups)
+
+    # assign values to nodes in graph
+    nodes = {node: data for node, data in G.nodes(data=True)}
+    nodesGPD = gpd.GeoDataFrame(nodes).T
+    nodesGPD.crs = G.graph['crs']
+
+    nodes_attrib = gpd.sjoin(nodesGPD, overlayPoly, how='inner', op='within')
+    nodes_dict = nodes_attrib.to_dict(orient='index')
+    nx.set_node_attributes(G, nodes_dict)
+
+    return G
 
 
 def add_geometry_to_network(G):

@@ -492,23 +492,24 @@ def area_overlay(sources, targets, population, indices = [], groups = []):
 
     Parameters
     ----------
-    :param source: geopandas.GeoDataFrame
-    :param target: geopandas.GeoDataFrame
+    :param sources: geopandas.GeoDataFrame
+    :param targets: geopandas.GeoDataFrame
 
     Returns
     -------
     :return:
     """
-    target = targets.copy()
+    new_targets = targets.copy()
     population_data = []
     indices_data = {index: [] for index in indices}
     groups_data = {group: [] for group in groups}
 
-    for i, target in targets.iterrows():
+    for i, target in new_targets.iterrows():
         temp_population = 0
         temp_indices = {index: 0 for index in indices}
         temp_groups = {group: 0 for group in groups}
         count = 0
+        weight = 0
         target_geom = target.geometry
 
         # create spatial index and find geometry within polygon
@@ -516,7 +517,7 @@ def area_overlay(sources, targets, population, indices = [], groups = []):
         matches_index = list(sindex.intersection(target_geom.bounds))
 
         for matched_index in matches_index:
-            intersection = overlay(sources.iloc[[matched_index]], targets.iloc[[i]], how='intersection')
+            intersection = overlay(sources.iloc[[matched_index]], new_targets.iloc[[i]], how='intersection')
 
             if len(intersection) is not 0:
                 count += 1
@@ -529,6 +530,7 @@ def area_overlay(sources, targets, population, indices = [], groups = []):
 
                 temp_population += population_value
                 # for indices use weighted mean
+                weight += inters_ratio
                 for index in temp_indices.keys():
                     temp_indices[index] += inters_ratio * sources.iloc[[matched_index]][index].values[0]
 
@@ -545,22 +547,22 @@ def area_overlay(sources, targets, population, indices = [], groups = []):
 
         if count != 0:
             for index in indices_data.keys():
-                indices_data[index].append(temp_indices[index]/count)
+                indices_data[index].append(temp_indices[index]/weight)
         else:
             for index in indices_data.keys():
                 indices_data[index].append(np.nan)
         population_data.append(temp_population)
 
     # append values to target geometry
-    target[population] = population_data
+    new_targets[population] = population_data
 
     for index in indices_data.keys():
-        target[index] = indices_data[index]
+        new_targets[index] = indices_data[index]
 
     for group in groups_data.keys():
-        target[group] = groups_data[group]
+        new_targets[group] = groups_data[group]
 
-    return target
+    return new_targets
 
 
 

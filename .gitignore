@@ -8,9 +8,6 @@ __pycache__
 #dev
 *.egg-info/
 
-#working codes
-Street-Analysis-Nodes.ipynb
-Street Networks.ipynb
 
 cache
 .Rproj.user
@@ -19,3 +16,4 @@ output_data
 logs
 temp
 images
+temp
