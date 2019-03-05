@@ -203,7 +203,7 @@ def join_lines(line, line_list, tolerance=20):
                 return line
 
 
-def clean_stops(stops, boundary, group_by=None, tolerance=50, data={}):
+def clean_stops(stops, boundary, group_by=None, tolerance=50, data=None):
     """
     Create geodataframe containing point geometries representing stops in transport network.
     Points are clustered based on tolerance distance, and and centroid is returned as new point.
@@ -225,6 +225,9 @@ def clean_stops(stops, boundary, group_by=None, tolerance=50, data={}):
     -------
     :return: geopandas.GeoDataFrame
     """
+    if data is None:
+        data = {}
+
     temp = []
     stops = stops.copy()
     boundary_geom = boundary.unary_union
@@ -269,7 +272,7 @@ def clean_stops(stops, boundary, group_by=None, tolerance=50, data={}):
     return stopsGPD
 
 
-def clean_lines(lines, group_by=None, tolerance=20, data={}):
+def clean_lines(lines, group_by=None, tolerance=20, data=None):
     """
     Creates geodataframe containing geometries of LineString objects.
     MultiLineStrings and LineStringZ is converted to LineStrings.
@@ -289,6 +292,9 @@ def clean_lines(lines, group_by=None, tolerance=20, data={}):
     :return: geopandas.GeoDataFrame
     """
     lines = lines.copy()
+
+    if data is None:
+        data = {}
 
     # check if data values need to be conserved
     mapped_data = {new_column: [] for (old_column, new_column) in data.items()}
@@ -448,6 +454,89 @@ def cut_line(line, distance):
 def find_nearest_node(data, nodes, spatial_index, buff=50):
     pass
 
+def voronoi_finite_polygons_2d(vor, radius=None):
+    """
+    Reconstruct infinite voronoi regions in a 2D diagram to finite
+    regions.
+
+    Parameters
+    ----------
+    vor : Voronoi
+        Input diagram
+    radius : float, optional
+        Distance to 'points at infinity'.
+
+    Returns
+    -------
+    regions : list of tuples
+        Indices of vertices in each revised Voronoi regions.
+    vertices : list of tuples
+        Coordinates for revised Voronoi vertices. Same as coordinates
+        of input vertices, with 'points at infinity' appended to the
+        end.
+
+    """
+
+    if vor.points.shape[1] != 2:
+        raise ValueError("Requires 2D input")
+
+    new_regions = []
+    new_vertices = vor.vertices.tolist()
+
+    center = vor.points.mean(axis=0)
+    if radius is None:
+        radius = vor.points.ptp().max()
+
+    # Construct a map containing all ridges for a given point
+    all_ridges = {}
+    for (p1, p2), (v1, v2) in zip(vor.ridge_points, vor.ridge_vertices):
+        all_ridges.setdefault(p1, []).append((p2, v1, v2))
+        all_ridges.setdefault(p2, []).append((p1, v1, v2))
+
+    # Reconstruct infinite regions
+    for p1, region in enumerate(vor.point_region):
+        vertices = vor.regions[region]
+
+        if all(v >= 0 for v in vertices):
+            # finite region
+            new_regions.append(vertices)
+            continue
+
+        # reconstruct a non-finite region
+        ridges = all_ridges[p1]
+        new_region = [v for v in vertices if v >= 0]
+
+        for p2, v1, v2 in ridges:
+            if v2 < 0:
+                v1, v2 = v2, v1
+            if v1 >= 0:
+                # finite ridge: already in the region
+                continue
+
+            # Compute the missing endpoint of an infinite ridge
+
+            t = vor.points[p2] - vor.points[p1] # tangent
+            t /= np.linalg.norm(t)
+            n = np.array([-t[1], t[0]])  # normal
+
+            midpoint = vor.points[[p1, p2]].mean(axis=0)
+            direction = np.sign(np.dot(midpoint - center, n)) * n
+            far_point = vor.vertices[v2] + direction * radius
+
+            new_region.append(len(new_vertices))
+            new_vertices.append(far_point.tolist())
+
+        # sort region counterclockwise
+        vs = np.asarray([new_vertices[v] for v in new_region])
+        c = vs.mean(axis=0)
+        angles = np.arctan2(vs[:,1] - c[1], vs[:,0] - c[0])
+        new_region = np.array(new_region)[np.argsort(angles)]
+
+        # finish
+        new_regions.append(new_region.tolist())
+
+    return new_regions, np.asarray(new_vertices)
+
 
 def create_node_voronoi(G, boundary):
     """
@@ -472,11 +561,12 @@ def create_node_voronoi(G, boundary):
     tessellation = Voronoi(points)
 
     # create polygon from voronoi tessellation
-    lines = [geometry.LineString(tessellation.vertices[line])
-             for line in tessellation.ridge_vertices if -1 not in line]
-
-    polygons = list(polygonize(lines))
-    polygonsGPD = gpd.GeoDataFrame(geometry=polygons)
+    regions, vertices = voronoi_finite_polygons_2d(tessellation, radius=200)
+    polys = []
+    for region in regions:
+        polygon = vertices[region]
+        polys.append(geometry.Polygon(polygon))
+    polygonsGPD = gpd.GeoDataFrame(geometry=polys)
     polygonsGPD.crs = G.graph['crs']
 
     # create intersection with urban limit

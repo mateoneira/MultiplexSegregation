@@ -93,7 +93,7 @@ def test_alpha_shape():
 
     # check error is raised with incorrect_input
     with raises(TypeError) as exception:
-        alpha_shape([1,2,3], 1)
+        alpha_shape([1, 2, 3], 1)
 
     with raises(ValueError) as exception:
         alpha_shape(points, 0)
@@ -131,17 +131,17 @@ def test_boundary_from_areas():
             y_min = y_max + 20
         x_min = x_max + 20
 
-    blocksGPD = gpd.GeoDataFrame({"id": ids, "geometry": blocks})
+    blocks_gpd = gpd.GeoDataFrame({"id": ids, "geometry": blocks})
 
     # test inputs
     with raises(TypeError) as exception:
         boundary_from_areas([1,2,3])
     with raises(ValueError) as exception:
-        boundary_from_areas(blocksGPD, 0)
+        boundary_from_areas(blocks_gpd, 0)
     with raises(ValueError) as exception:
-        boundary_from_areas(blocksGPD, 1, -100)
+        boundary_from_areas(blocks_gpd, 1, -100)
 
-    assert len(boundary_from_areas(blocksGPD, 0.01)) == 1
+    assert len(boundary_from_areas(blocks_gpd, 0.01)) == 1
 
 
 
